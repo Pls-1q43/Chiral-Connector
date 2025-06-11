@@ -1,0 +1,82 @@
+.chiral-connector-related-posts-container {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.chiral-connector-related-posts-list h3 {
+    font-size: 1.2em;
+    margin-bottom: 15px;
+}
+
+.chiral-hub-name-subtitle {
+    display: block;
+    font-size: 0.9em;
+    color: #555;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+
+.chiral-connector-related-posts-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.chiral-connector-related-posts-list li {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px dotted #eee;
+    overflow: hidden; /* Clearfix */
+}
+
+.chiral-connector-related-posts-list li:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.chiral-connector-related-posts-list .related-post-thumbnail {
+    float: left;
+    margin-right: 15px;
+    max-width: 100px; /* Adjust as needed */
+}
+
+.chiral-connector-related-posts-list .related-post-thumbnail img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 3px;
+}
+
+.chiral-connector-related-posts-list .related-post-content h4 {
+    font-size: 1.1em;
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+.chiral-connector-related-posts-list .related-post-content h4 a {
+    text-decoration: none;
+}
+
+.chiral-connector-related-posts-list .related-post-content p {
+    font-size: 0.9em;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.chiral-connector-related-posts-list .related-post-source {
+    font-size: 0.8em;
+    color: #777;
+    display: block;
+}
+
+/* Style for Hub posts to distinguish them from Chiral posts */
+.chiral-connector-related-posts-list .related-post-source:contains("(Hub)") {
+    color: #0073aa;
+    font-weight: 500;
+}
+
+.chiral-no-related-posts {
+    color: #777;
+    font-style: italic;
+}

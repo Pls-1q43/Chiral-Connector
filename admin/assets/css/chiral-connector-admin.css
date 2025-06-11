@@ -1,0 +1,86 @@
+.wrap #chiral-connector-test-status,
+.wrap #chiral-connector-batch-sync-status,
+.wrap #chiral-connector-clear-cache-status {
+    margin-left: 10px;
+    font-style: italic;
+}
+
+.wrap #chiral-connector-test-status.success,
+.wrap #chiral-connector-clear-cache-status.success {
+    color: #2e7d32;
+    font-weight: bold;
+}
+
+.wrap #chiral-connector-test-status.error,
+.wrap #chiral-connector-clear-cache-status.error {
+    color: #d32f2f;
+    font-weight: bold;
+}
+
+#chiral-connector-log-display {
+    background-color: #f8f9fa;
+    border: 1px solid #ced4da;
+    padding: 10px;
+    height: 200px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+/* Enhanced styles for improved UX */
+.chiral-connector-setup-guide {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.chiral-connector-setup-guide h3 {
+    color: white !important;
+    margin-top: 0;
+}
+
+.chiral-connector-save-section {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.chiral-connector-save-section.highlight {
+    animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    from {
+        box-shadow: 0 0 5px rgba(34, 113, 177, 0.5);
+    }
+    to {
+        box-shadow: 0 0 20px rgba(34, 113, 177, 0.8);
+    }
+}
+
+/* Success message styling */
+.wrap #chiral-connector-test-status.success {
+    background: #e8f5e8;
+    border: 1px solid #4caf50;
+    padding: 8px 12px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+/* Make Test Connection button more prominent when hub is not configured */
+.chiral-connector-unconfigured #chiral-connector-test-connection {
+    background-color: #0073aa;
+    border-color: #0073aa;
+    color: white;
+    font-weight: bold;
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.chiral-connector-unconfigured #chiral-connector-test-connection:hover {
+    background-color: #005a87;
+    border-color: #005a87;
+}
