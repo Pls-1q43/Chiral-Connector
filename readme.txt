@@ -1,9 +1,10 @@
 === Chiral Connector ===
-Contributors: Pls(评论尸)
+Contributors: pls1q43
+Donate link: https://1q43.blog/donate/
 Tags: related posts, content synchronization, network, jetpack, cross-site, content discovery
 Requires at least: 5.2
 Tested up to: 6.6
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 Requires PHP: 7.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
