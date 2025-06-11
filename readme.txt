@@ -115,6 +115,16 @@ Click the "Quit Chiral Network" button on the settings page. This will delete al
 
 == Changelog ==
 
+= 1.1.0 =
+* New: Hub Mode - Automatically detect if the current site is a Chiral Hub Core site
+* New: Automatically disable data synchronization in Hub mode to avoid cyclic synchronization
+* New: In Hub mode, the related article display function uses local data instead of Hub API
+* New: In Hub mode, the batch synchronization function is disabled and the corresponding prompt is displayed
+* Optimization: Simplified the Hub mode status display on the management page
+* Optimization: Cleaned up the debug information output to keep the interface simple
+* Fixed: The problem of repeated display of related article components in Hub mode
+* Fixed: Display anomalies caused by repeated hook registration in Hub mode
+
 = 1.0.0 =
 * Initial release
 * Complete Chiral Hub connection functionality

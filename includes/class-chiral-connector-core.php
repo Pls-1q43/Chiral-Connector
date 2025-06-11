@@ -44,6 +44,15 @@ class Chiral_Connector_Core {
     protected $version;
 
     /**
+     * Whether this connector is running in Hub mode.
+     *
+     * @since    1.0.0
+     * @access   protected
+     * @var      bool    $is_hub_mode    True if running on a Chiral Hub Core site.
+     */
+    protected $is_hub_mode;
+
+    /**
      * Define the core functionality of the plugin.
      *
      * Set the plugin name and the plugin version that can be used throughout the plugin.
@@ -60,18 +69,33 @@ class Chiral_Connector_Core {
             $this->version = '1.0.0';
         }
         $this->plugin_name = 'chiral-connector';
+        
+        // Detect if we're running in Hub mode
+        $this->is_hub_mode = $this->detect_hub_mode();
+        
+        // Log Hub mode detection for debugging
+        if ( class_exists( 'Chiral_Connector_Utils' ) ) {
+            Chiral_Connector_Utils::log_message( 
+                sprintf( 'Chiral Connector initialized. Hub mode: %s', 
+                    $this->is_hub_mode ? 'true' : 'false' 
+                ), 
+                'debug' 
+            );
+        }
 
         $this->load_dependencies();
         $this->set_locale();
         $this->define_admin_hooks();
         $this->define_public_hooks();
-        // According to the doc, API, Sync, Display are also core modules.
-        // Their instantiation and hook registration might happen here or be managed by admin/public specific classes.
-        // For now, let's assume they are loaded as dependencies and their hooks are defined within their respective areas or via the loader.
+        
+        // Only load sync hooks if not in Hub mode
+        if ( ! $this->is_hub_mode ) {
+            $this->define_sync_hooks();
+        }
+        
+        // Always load API and display hooks (needed for both modes)
         $this->define_api_hooks();
-        $this->define_sync_hooks();
         $this->define_display_hooks();
-
     }
 
     /**
@@ -245,11 +269,13 @@ class Chiral_Connector_Core {
      * @access private
      */
     private function define_display_hooks() {
-        // The Chiral_Connector_Public class is responsible for instantiating Chiral_Connector_Display
-        // and registering its specific hooks (like filters for 'the_content' or shortcodes)
-        // based on plugin settings. This is handled within Chiral_Connector_Public->init_display_hooks().
-        // This keeps the core class focused on loading main components and global hooks.
-        // new Chiral_Connector_Display( $this->get_plugin_name(), $this->get_version() );
+        // Display hooks are already registered in define_public_hooks() through 
+        // the public class instance. This method is kept for organizational clarity
+        // but no additional action is needed to avoid duplicate hook registration.
+        
+        // Note: Previously this method was empty, then we added duplicate registration.
+        // The proper place for display hooks registration is in define_public_hooks()
+        // where the main public instance is created and init_display_hooks() is called.
     }
 
 
@@ -307,37 +333,124 @@ class Chiral_Connector_Core {
     }
 
     /**
-     * Node status endpoint callback.
-     * Returns plugin version, related articles display status, and last disabled time.
+     * Check if the current node is properly connected to the Hub API endpoint.
      *
      * @since 1.0.0
-     * @param WP_REST_Request $request Full details about the request.
-     * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+     * @return array An array with status and message.
      */
     public function node_status_endpoint( WP_REST_Request $request ) {
+        // Get node configuration from settings
         $options = get_option( 'chiral_connector_settings', array() );
-        
-        // Get plugin version
-        $plugin_version = $this->get_version();
-        
-        // Get related articles display status
-        $display_enabled = isset( $options['display_enable'] ) ? (bool) $options['display_enable'] : true;
-        
-        // Get last disabled time
-        $last_disabled_time = null;
-        if ( ! $display_enabled ) {
-            $last_disabled_time = get_option( 'chiral_connector_display_last_disabled', null );
+        $node_id = isset( $options['node_id'] ) ? $options['node_id'] : '';
+        $hub_url = isset( $options['hub_url'] ) ? $options['hub_url'] : '';
+        $hub_username = isset( $options['hub_username'] ) ? $options['hub_username'] : '';
+        $hub_app_password = isset( $options['hub_app_password'] ) ? $options['hub_app_password'] : '';
+
+        $status = array(
+            'node_id' => $node_id,
+            'hub_configured' => !empty($hub_url) && !empty($hub_username) && !empty($hub_app_password),
+            'hub_url' => $hub_url,
+            'is_hub_mode' => $this->is_hub_mode
+        );
+
+        return new WP_REST_Response( $status, 200 );
+    }
+
+    /**
+     * Detect if this connector is running on a Chiral Hub Core site.
+     *
+     * @since 1.0.0
+     * @return bool True if Hub Core plugin is active, false otherwise.
+     */
+    private function detect_hub_mode() {
+        // Manual override for testing (remove in production)
+        if ( defined( 'CHIRAL_FORCE_HUB_MODE' ) && CHIRAL_FORCE_HUB_MODE ) {
+            return true;
         }
         
-        $response_data = array(
-            'plugin_version' => $plugin_version,
-            'related_articles_enabled' => $display_enabled,
-            'last_disabled_time' => $last_disabled_time,
-            'timestamp' => current_time( 'timestamp' ),
-            'site_url' => home_url(),
-        );
+        // Method 1: Check if Chiral Hub Core plugin is active
+        if ( ! function_exists( 'is_plugin_active' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
         
-        return new WP_REST_Response( $response_data, 200 );
+        // Get all active plugins
+        $active_plugins = get_option( 'active_plugins', array() );
+        
+        // Check for common Hub Core plugin patterns
+        foreach ( $active_plugins as $plugin ) {
+            if ( strpos( $plugin, 'chiral-hub-core' ) !== false ) {
+                return true;
+            }
+        }
+        
+        // Method 2: Check for Hub Core specific constants
+        if ( defined( 'CHIRAL_HUB_CORE_VERSION' ) || defined( 'CHIRAL_HUB_CORE_PLUGIN_FILE' ) ) {
+            return true;
+        }
+        
+        // Method 3: Check for Hub Core specific classes (delayed check)
+        add_action( 'plugins_loaded', array( $this, 'delayed_hub_mode_check' ), 99 );
+        
+        // Method 4: Check for Hub Core specific functions
+        if ( function_exists( 'run_chiral_hub_core' ) || function_exists( 'chiral_hub_core_activate' ) ) {
+            return true;
+        }
+        
+        // Method 5: Check for chiral_data post type (this should exist if Hub Core is active)
+        // Use a delayed check since post types might not be registered yet
+        if ( post_type_exists( 'chiral_data' ) ) {
+            return true;
+        }
+        
+        return false;
     }
+    
+    /**
+     * Delayed check for Hub mode after all plugins are loaded.
+     *
+     * @since 1.0.0
+     */
+    public function delayed_hub_mode_check() {
+        $was_hub_mode = $this->is_hub_mode;
+        $is_now_hub_mode = false;
+        
+        // Check for Hub Core specific classes
+        if ( class_exists( 'Chiral_Hub_Core' ) || class_exists( 'Chiral_Hub_CPT' ) ) {
+            $is_now_hub_mode = true;
+        }
+        
+        // Check for chiral_data post type
+        if ( post_type_exists( 'chiral_data' ) ) {
+            $is_now_hub_mode = true;
+        }
+        
+        // If Hub mode status changed, update it
+        if ( $is_now_hub_mode !== $was_hub_mode ) {
+            $this->is_hub_mode = $is_now_hub_mode;
+            
+            // Log the change for debugging
+            if ( class_exists( 'Chiral_Connector_Utils' ) ) {
+                Chiral_Connector_Utils::log_message( 
+                    sprintf( 'Hub mode status changed from %s to %s after plugins_loaded', 
+                        $was_hub_mode ? 'true' : 'false', 
+                        $is_now_hub_mode ? 'true' : 'false' 
+                    ), 
+                    'debug' 
+                );
+            }
+        }
+    }
+
+    /**
+     * Check if the connector is running in Hub mode.
+     *
+     * @since 1.0.0
+     * @return bool True if in Hub mode, false otherwise.
+     */
+    public function is_hub_mode() {
+        return $this->is_hub_mode;
+    }
+    
+
 
 }

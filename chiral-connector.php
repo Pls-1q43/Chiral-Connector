@@ -12,7 +12,7 @@
  * Plugin Name:       Chiral Connector
  * Plugin URI:        https://ckc.akashio.com
  * Description:       Connects your WordPress site to a Chiral Hub, enabling content synchronization and discovery within the Chiral Network.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 5.2
  * Requires PHP:      7.2
  * Author:            评论尸(Pls)
@@ -53,12 +53,24 @@ require plugin_dir_path( __FILE__ ) . 'includes/class-chiral-connector-core.php'
  * @since    1.0.0
  */
 function run_chiral_connector() {
-
-    $plugin = new Chiral_Connector_Core();
-    $plugin->run();
-
+    global $chiral_connector_core;
+    
+    $chiral_connector_core = new Chiral_Connector_Core();
+    $chiral_connector_core->run();
 }
 run_chiral_connector();
+
+require 'plugin-update-checker/plugin-update-checker.php';
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+$myUpdateChecker = PucFactory::buildUpdateChecker(
+    'https://github.com/Pls-1q43/Chiral-Connector/',
+    __FILE__,
+    'chiral-connector'
+);
+
+//Set the branch that contains the stable release.
+$myUpdateChecker->setBranch('main');
 
 /**
  * The code that runs during plugin activation.

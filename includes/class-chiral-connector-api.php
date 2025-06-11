@@ -179,6 +179,21 @@ class Chiral_Connector_Api {
      * @return array|WP_Error The related data or WP_Error on failure.
      */
     public function get_related_data_from_hub( $current_post_url, $node_id, $count, $hub_url_param = '', $username = '', $app_password = '' ) {
+        // Check if we're in Hub mode
+        global $chiral_connector_core;
+        $is_hub_mode = false;
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) ) {
+            $is_hub_mode = $chiral_connector_core->is_hub_mode();
+        } else {
+            // Fallback detection for Hub mode
+            $is_hub_mode = $this->detect_hub_mode_fallback();
+        }
+        
+        if ( $is_hub_mode ) {
+            return $this->get_related_data_from_hub_local( $current_post_url, $node_id, $count );
+        }
+        
+        // Original logic for non-Hub mode (Node sites)
         // $hub_url_param, $username, and $app_password from params are now ignored for fetching related data.
         // We will use configured Hub URL for the domain and expect the Hub CPT ID to be available.
 
@@ -372,6 +387,206 @@ class Chiral_Connector_Api {
             Chiral_Connector_Utils::log_message('[DEBUG CC API] Final $related_posts_details to be returned by get_related_data_from_hub: ' . print_r($related_posts_details, true), 'debug');
         }
         return $related_posts_details;
+    }
+
+    /**
+     * Get related data from Hub when running in Hub mode (local mode).
+     *
+     * @since 1.0.0
+     * @param string $current_post_url The URL of the current post.
+     * @param string $node_id          The ID of the current node.
+     * @param int    $count            The number of related items to fetch.
+     * @return array|WP_Error The related data or WP_Error on failure.
+     */
+    private function get_related_data_from_hub_local( $current_post_url, $node_id, $count ) {
+        if (class_exists('Chiral_Connector_Utils')) {
+            Chiral_Connector_Utils::log_message('[DEBUG CC API] Running in Hub mode - using local related posts logic', 'debug');
+        }
+        
+        // Get the current post on the Hub site
+        global $post;
+        $current_hub_post_id = 0;
+        
+        if (is_singular() && isset($post->ID)) {
+            $current_hub_post_id = $post->ID;
+        } else {
+            $post_id_from_url = url_to_postid($current_post_url);
+            if ($post_id_from_url) {
+                $current_hub_post_id = $post_id_from_url;
+            }
+        }
+
+        if ( ! $current_hub_post_id ) {
+            if (class_exists('Chiral_Connector_Utils')) {
+                Chiral_Connector_Utils::log_message('Could not determine the current Hub post ID.', 'error');
+            }
+            return new WP_Error('missing_hub_post_id', __('Could not determine the current post ID on this Hub site.', 'chiral-connector'));
+        }
+
+        // Get the current site domain for WordPress.com API
+        $site_url = home_url();
+        $parsed_url = wp_parse_url( $site_url );
+        $hub_domain = $parsed_url['host'];
+
+        // Use WordPress.com API to get related posts for the current Hub post
+        $related_hub_post_ids_data = $this->get_related_post_ids_from_wp_api( $hub_domain, $current_hub_post_id, $count );
+
+        if (class_exists('Chiral_Connector_Utils')) {
+            Chiral_Connector_Utils::log_message('[DEBUG CC API Hub Mode] Data received from get_related_post_ids_from_wp_api: ' . print_r($related_hub_post_ids_data, true), 'debug');
+        }
+
+        if ( is_wp_error( $related_hub_post_ids_data ) ) {
+            return $related_hub_post_ids_data;
+        }
+
+        if ( empty( $related_hub_post_ids_data['results'] ) ) {
+            return array(); 
+        }
+
+        $related_posts_details = array();
+        foreach ( $related_hub_post_ids_data['results'] as $related_item ) {
+            if ( isset( $related_item['fields']['post_id'] ) ) {
+                $hub_related_post_id = $related_item['fields']['post_id'];
+                
+                if (class_exists('Chiral_Connector_Utils')) {
+                    Chiral_Connector_Utils::log_message('[DEBUG CC API Hub Mode] Processing Hub Post ID: ' . $hub_related_post_id, 'debug');
+                }
+
+                $post_details = $this->get_post_details_from_wp_api( $hub_domain, $hub_related_post_id );
+
+                if ( ! is_wp_error( $post_details ) && ! empty( $post_details ) ) {
+                    $final_url = isset($post_details['URL']) ? $post_details['URL'] : '#';
+                    $source_url_from_meta_array = '';
+
+                    // Extract source URL from metadata
+                    if ( isset( $post_details['metadata'] ) && is_array( $post_details['metadata'] ) ) {
+                        foreach ( $post_details['metadata'] as $meta_item ) {
+                            $current_key = '';
+                            $current_value = '';
+                            if ( is_object( $meta_item ) && isset( $meta_item->key ) ) {
+                                $current_key = $meta_item->key;
+                                $current_value = isset( $meta_item->value ) ? $meta_item->value : '';
+                            } elseif ( is_array( $meta_item ) && isset( $meta_item['key'] ) ) {
+                                $current_key = $meta_item['key'];
+                                $current_value = isset( $meta_item['value'] ) ? $meta_item['value'] : '';
+                            }
+
+                            // Check other_URLs first
+                            if ( 'other_URLs' === $current_key && !empty( $current_value ) ) {
+                                $other_urls_data = json_decode( $current_value, true );
+                                if ( is_array( $other_urls_data ) && isset( $other_urls_data['source'] ) && !empty( $other_urls_data['source'] ) ) {
+                                    $source_url_from_meta_array = $other_urls_data['source'];
+                                    break;
+                                }
+                            }
+                            
+                            // Check chiral_source_url as fallback
+                            if ( empty( $source_url_from_meta_array ) && 'chiral_source_url' === $current_key && !empty( $current_value ) ) {
+                                $source_url_from_meta_array = $current_value;
+                            }
+                        }
+                    }
+
+                    // Check standard WP REST API 'meta' field as fallback
+                    $source_url_from_meta_object = '';
+                    if ( empty( $source_url_from_meta_array ) && isset( $post_details['meta'] ) && is_array( $post_details['meta'] ) ) {
+                        if ( !empty( $post_details['meta']['other_URLs'] ) ) {
+                            $other_urls_data = json_decode( $post_details['meta']['other_URLs'], true );
+                            if ( is_array( $other_urls_data ) && isset( $other_urls_data['source'] ) && !empty( $other_urls_data['source'] ) ) {
+                                $source_url_from_meta_object = $other_urls_data['source'];
+                            }
+                        }
+                        if ( empty( $source_url_from_meta_object ) && !empty( $post_details['meta']['chiral_source_url'] ) ) {
+                            $source_url_from_meta_object = $post_details['meta']['chiral_source_url'];
+                        }
+                    }
+                    
+                    // Determine final URL
+                    if ( !empty( $source_url_from_meta_array ) && filter_var( $source_url_from_meta_array, FILTER_VALIDATE_URL) ) {
+                        $final_url = $source_url_from_meta_array;
+                    } elseif ( !empty( $source_url_from_meta_object ) && filter_var( $source_url_from_meta_object, FILTER_VALIDATE_URL) ) {
+                        $final_url = $source_url_from_meta_object;
+                    }
+
+                    // Extract network name
+                    $network_name_from_meta = '';
+                    if ( isset( $post_details['metadata'] ) && is_array( $post_details['metadata'] ) ) {
+                        foreach ( $post_details['metadata'] as $meta_item ) {
+                            $current_key = '';
+                            $current_value = '';
+                            if ( is_object( $meta_item ) && isset( $meta_item->key ) ) {
+                                $current_key = $meta_item->key;
+                                $current_value = isset( $meta_item->value ) ? $meta_item->value : '';
+                            } elseif ( is_array( $meta_item ) && isset( $meta_item['key'] ) ) {
+                                $current_key = $meta_item['key'];
+                                $current_value = isset( $meta_item['value'] ) ? $meta_item['value'] : '';
+                            }
+
+                            if ( 'chiral_network_name' === $current_key && !empty( $current_value ) ) {
+                                $network_name_from_meta = $current_value;
+                                break; 
+                            }
+                        }
+                    }
+                    if ( empty( $network_name_from_meta ) && isset( $post_details['meta'] ) && is_array( $post_details['meta'] ) && !empty( $post_details['meta']['chiral_network_name'] ) ) {
+                         $network_name_from_meta = $post_details['meta']['chiral_network_name'];
+                    }
+
+                    $related_posts_details[] = array(
+                        'title' => isset($post_details['title']) ? $post_details['title'] : __('Untitled', 'chiral-connector'),
+                        'url' => $final_url,
+                        'excerpt' => isset($post_details['excerpt']) ? $post_details['excerpt'] : '',
+                        'featured_image_url' => isset($post_details['featured_image']) ? $post_details['featured_image'] : '',
+                        'original_post_id' => $hub_related_post_id, 
+                        'hub_url' => isset($post_details['URL']) ? $post_details['URL'] : '#', 
+                        'author_name' => isset($post_details['author']['name']) ? $post_details['author']['name'] : (isset($post_details['author']['login']) ? $post_details['author']['login'] : 'N/A'),
+                        'source_type' => 'hub_local_api',
+                        'network_name' => $network_name_from_meta,
+                    );
+                } else {
+                    if (class_exists('Chiral_Connector_Utils')) {
+                        Chiral_Connector_Utils::log_message('[DEBUG CC API Hub Mode] Failed to get details for Hub Post ID: ' . $hub_related_post_id, 'debug');
+                    }
+                }
+            }
+        }
+        
+        if (class_exists('Chiral_Connector_Utils')) {
+            Chiral_Connector_Utils::log_message('[DEBUG CC API Hub Mode] Final related posts details: ' . print_r($related_posts_details, true), 'debug');
+        }
+        
+        return $related_posts_details;
+    }
+
+    /**
+     * Fallback method to detect Hub mode when core instance is not available.
+     *
+     * @since 1.0.0
+     * @return bool True if in Hub mode, false otherwise.
+     */
+    private function detect_hub_mode_fallback() {
+        // Check if Chiral Hub Core plugin is active
+        if ( ! function_exists( 'is_plugin_active' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        
+        $hub_plugins = array(
+            'chiral-hub-core/chiral-hub-core.php',
+            'chiral-hub-core.php',
+        );
+        
+        foreach ( $hub_plugins as $plugin ) {
+            if ( is_plugin_active( $plugin ) ) {
+                return true;
+            }
+        }
+        
+        // Check for Hub Core specific classes or post types
+        if ( class_exists( 'Chiral_Hub_Core' ) || class_exists( 'Chiral_Hub_CPT' ) || post_type_exists( 'chiral_data' ) ) {
+            return true;
+        }
+        
+        return false;
     }
 
     /**

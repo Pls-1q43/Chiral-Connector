@@ -367,9 +367,22 @@ class Chiral_Connector_Admin {
         
         $is_hub_configured = !empty($hub_url) && !empty($username) && !empty($app_password);
         
+        // Check if we're in Hub mode
+        global $chiral_connector_core;
+        $is_hub_mode = false;
+        
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) ) {
+            $is_hub_mode = $chiral_connector_core->is_hub_mode();
+        }
+        
         echo '<p>' . esc_html__( 'Enter the connection details for your Chiral Hub.', 'chiral-connector' ) . '</p>';
         
-        if (!$is_hub_configured) {
+        if ( $is_hub_mode ) {
+            echo '<div class="notice notice-info" style="margin: 10px 0; padding: 12px;"><p>';
+            echo '<strong>' . esc_html__('🏠 Hub Mode Detected:', 'chiral-connector') . '</strong> ';
+            echo esc_html__('This Connector is running on a Chiral Hub Core site. Connection settings are optional, and data synchronization is automatically disabled. Related articles display remains active to show content from your entire network.', 'chiral-connector');
+            echo '</p></div>';
+        } elseif (!$is_hub_configured) {
             echo '<div class="notice notice-warning" style="margin: 10px 0; padding: 12px;"><p>';
             echo '<strong>' . esc_html__('⚠️ Setup Required:', 'chiral-connector') . '</strong> ';
             echo esc_html__('Please complete the Hub connection settings above, then test the connection. After a successful test, remember to click the "Save Settings" button at the bottom of this page to save your configuration.', 'chiral-connector');
@@ -432,6 +445,27 @@ class Chiral_Connector_Admin {
     }
 
     public function batch_sync_render() {
+        // Check if we're in Hub mode
+        global $chiral_connector_core;
+        $is_hub_mode = false;
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) ) {
+            $is_hub_mode = $chiral_connector_core->is_hub_mode();
+        }
+        
+        if ( $is_hub_mode ) {
+            ?>
+            <div class="chiral-batch-sync-guidance" style="background: #e8f4f8; border: 1px solid #2196F3; padding: 12px; margin-bottom: 15px; border-radius: 4px;">
+                <p style="margin: 0; color: #1976D2;">
+                    <strong>🏠 Hub Mode Detected:</strong> <?php esc_html_e( 'Batch synchronization is not needed on the Hub site. The Hub already contains all the centralized data from your network.', 'chiral-connector' ); ?>
+                </p>
+            </div>
+            <button type="button" class="button" disabled><?php esc_html_e( 'Batch Sync (Disabled in Hub Mode)', 'chiral-connector' ); ?></button>
+            <span style="margin-left: 10px; color: #666; font-style: italic;"><?php esc_html_e( 'Not applicable in Hub mode', 'chiral-connector' ); ?></span>
+            <?php
+            return;
+        }
+        
+        // Original non-Hub mode UI
         ?>
         <div class="chiral-batch-sync-guidance" style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 12px; margin-bottom: 15px; border-radius: 4px;">
             <p style="margin: 0 0 8px 0;"><strong><?php esc_html_e( '📝 When to use Batch Sync:', 'chiral-connector' ); ?></strong></p>
@@ -582,6 +616,13 @@ class Chiral_Connector_Admin {
      */
     public function ajax_trigger_batch_sync() {
         check_ajax_referer( 'chiral_connector_admin_nonce', 'nonce' );
+
+        // Check if we're in Hub mode
+        global $chiral_connector_core;
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) && $chiral_connector_core->is_hub_mode() ) {
+            wp_send_json_error( array( 'message' => __( 'Batch sync is not available in Hub mode. The Hub already contains all centralized data.', 'chiral-connector' ) ) );
+            return;
+        }
 
         // Check if sync is already running or scheduled
         if (get_transient('chiral_connector_batch_sync_running')) {

@@ -137,12 +137,21 @@ class Chiral_Connector_Sync {
     }
 
     /**
-     * Prepares post data and sends it to the hub.
+     * Sync a single post to the Chiral Hub.
      *
      * @since 1.0.0
      * @param int $post_id The ID of the post to sync.
      */
     private function sync_post_to_hub( $post_id ) {
+        // Check if we're in Hub mode - skip sync if true
+        global $chiral_connector_core;
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) && $chiral_connector_core->is_hub_mode() ) {
+            if (class_exists('Chiral_Connector_Utils')) {
+                Chiral_Connector_Utils::log_message('Hub mode detected - skipping sync for post ID: ' . $post_id, 'debug');
+            }
+            return;
+        }
+        
         $post = get_post( $post_id );
         if ( ! $post ) {
             return;
@@ -269,16 +278,26 @@ class Chiral_Connector_Sync {
     }
 
     /**
-     * Deletes a post from the hub.
+     * Delete a post from the Chiral Hub.
      *
      * @since 1.0.0
-     * @param int $post_id The ID of the local post.
+     * @param int $post_id The ID of the post to delete from the hub.
      */
     private function delete_post_from_hub( $post_id ) {
+        // Check if we're in Hub mode - skip deletion if true
+        global $chiral_connector_core;
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) && $chiral_connector_core->is_hub_mode() ) {
+            if (class_exists('Chiral_Connector_Utils')) {
+                Chiral_Connector_Utils::log_message('Hub mode detected - skipping delete for post ID: ' . $post_id, 'debug');
+            }
+            return;
+        }
+        
+        // Get the hub CPT ID from post meta
         $hub_cpt_id = get_post_meta( $post_id, '_chiral_hub_cpt_id', true );
-
         if ( empty( $hub_cpt_id ) ) {
-            // Post was not synced or ID not stored, nothing to delete from hub.
+            // Log warning: No CPT ID found, nothing to delete
+            Chiral_Connector_Utils::log_message( 'No Hub CPT ID found for post ID: ' . $post_id . '. Nothing to delete.' );
             return;
         }
 
@@ -377,6 +396,14 @@ class Chiral_Connector_Sync {
      * This is typically triggered from an admin interface.
      */
     public function batch_sync_posts() {
+        // Check if we're in Hub mode - batch sync is not needed in Hub mode
+        global $chiral_connector_core;
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) && $chiral_connector_core->is_hub_mode() ) {
+            Chiral_Connector_Utils::log_message( 'Batch sync skipped: Running in Hub mode. Synchronization is not needed on the Hub site itself.', 'info' );
+            delete_transient('chiral_connector_batch_sync_running'); // Clean up the transient
+            return;
+        }
+        
         // Ensure the transient is set at the beginning of the actual batch process.
         // This covers cases where cron might run after the initial transient from AJAX call has expired,
         // or if the process is triggered by other means.

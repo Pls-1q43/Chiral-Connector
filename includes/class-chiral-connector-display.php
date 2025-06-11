@@ -110,16 +110,39 @@ class Chiral_Connector_Display {
         $hub_url = isset($options['hub_url']) ? $options['hub_url'] : '';
         $display_count = isset($options['display_count']) ? intval($options['display_count']) : 5;
 
-        if (!$current_post_id || empty($node_id) || empty($hub_url)) {
-            return '<!-- Chiral Connector: Missing configuration for related posts -->';
+        // Check if we're in Hub mode
+        global $chiral_connector_core;
+        $is_hub_mode = false;
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) ) {
+            $is_hub_mode = $chiral_connector_core->is_hub_mode();
+        }
+
+        if (!$current_post_id) {
+            return '<!-- Chiral Connector: Missing current post ID -->';
+        }
+
+        // In Hub mode, we don't require hub_url configuration
+        if ( $is_hub_mode ) {
+            // Use current site URL as hub_url in Hub mode
+            $hub_url = home_url();
+            // Node ID can be optional or auto-generated in Hub mode
+            if ( empty( $node_id ) ) {
+                $node_id = 'hub-local';
+            }
+        } else {
+            // In normal Node mode, we require hub_url and node_id
+            if ( empty($node_id) || empty($hub_url) ) {
+                return '<!-- Chiral Connector: Missing configuration for related posts (node_id or hub_url) -->';
+            }
         }
 
         return sprintf(
-            '<div id="chiral-connector-related-posts" class="chiral-connector-related-posts-container" data-post-url="%s" data-node-id="%s" data-hub-url="%s" data-count="%d">%s</div>',
+            '<div id="chiral-connector-related-posts" class="chiral-connector-related-posts-container" data-post-url="%s" data-node-id="%s" data-hub-url="%s" data-count="%d" data-hub-mode="%s">%s</div>',
             esc_url(get_permalink($current_post_id)),
             esc_attr($node_id),
             esc_url($hub_url),
             esc_attr($display_count),
+            $is_hub_mode ? 'true' : 'false',
             esc_html__( 'Loading related Chiral data...', 'chiral-connector' )
         );
     }
@@ -160,17 +183,40 @@ class Chiral_Connector_Display {
         $node_id = isset($options['node_id']) ? $options['node_id'] : '';
         $hub_url = isset($options['hub_url']) ? $options['hub_url'] : '';
 
-        if (!$current_post_id || empty($node_id) || empty($hub_url)) {
-            return '<!-- Chiral Connector Shortcode: Missing configuration -->';
+        // Check if we're in Hub mode
+        global $chiral_connector_core;
+        $is_hub_mode = false;
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) ) {
+            $is_hub_mode = $chiral_connector_core->is_hub_mode();
+        }
+
+        if (!$current_post_id) {
+            return '<!-- Chiral Connector Shortcode: Missing current post ID -->';
+        }
+
+        // In Hub mode, we don't require hub_url configuration
+        if ( $is_hub_mode ) {
+            // Use current site URL as hub_url in Hub mode
+            $hub_url = home_url();
+            // Node ID can be optional or auto-generated in Hub mode
+            if ( empty( $node_id ) ) {
+                $node_id = 'hub-local';
+            }
+        } else {
+            // In normal Node mode, we require hub_url and node_id
+            if ( empty($node_id) || empty($hub_url) ) {
+                return '<!-- Chiral Connector Shortcode: Missing configuration (node_id or hub_url) -->';
+            }
         }
 
         // Similar to the_content filter, output a placeholder for JS to populate.
         return sprintf(
-            '<div class="chiral-connector-related-posts-container chiral-connector-shortcode" data-post-url="%s" data-node-id="%s" data-hub-url="%s" data-count="%d">%s</div>',
+            '<div class="chiral-connector-related-posts-container chiral-connector-shortcode" data-post-url="%s" data-node-id="%s" data-hub-url="%s" data-count="%d" data-hub-mode="%s">%s</div>',
             esc_url(get_permalink($current_post_id)),
             esc_attr($node_id),
             esc_url($hub_url),
             esc_attr(intval($atts['count'])),
+            $is_hub_mode ? 'true' : 'false',
             esc_html__( 'Loading related Chiral data...', 'chiral-connector' )
         );
     }
@@ -204,11 +250,21 @@ class Chiral_Connector_Display {
         $hub_api_user = isset($options['hub_username']) ? $options['hub_username'] : '';
         $hub_api_pass = isset($options['hub_app_password']) ? $options['hub_app_password'] : '';
 
-        if (empty($hub_url) || empty($hub_api_user) || empty($hub_api_pass)) {
-            wp_send_json_error(array(
-                'message' => esc_html__('Hub connection details are not configured in Chiral Connector settings.', 'chiral-connector')
-            ));
-            return; // Important to return here
+        // Check if we're in Hub mode
+        global $chiral_connector_core;
+        $is_hub_mode = false;
+        if ( isset( $chiral_connector_core ) && method_exists( $chiral_connector_core, 'is_hub_mode' ) ) {
+            $is_hub_mode = $chiral_connector_core->is_hub_mode();
+        }
+
+        // In Hub mode, credentials are optional
+        if ( ! $is_hub_mode ) {
+            if (empty($hub_url) || empty($hub_api_user) || empty($hub_api_pass)) {
+                wp_send_json_error(array(
+                    'message' => esc_html__('Hub connection details are not configured in Chiral Connector settings.', 'chiral-connector')
+                ));
+                return; // Important to return here
+            }
         }
 
         // 检查是否启用缓存

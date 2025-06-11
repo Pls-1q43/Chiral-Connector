@@ -121,27 +121,42 @@ class Chiral_Connector_Public {
         $options = get_option('chiral_connector_settings');
         $enable_display = isset($options['display_enable']) ? $options['display_enable'] : true;
 
-        if ( $enable_display && (is_single() || has_shortcode( get_the_content(), 'chiral_related_posts' )) ) {
-            wp_enqueue_script( $this->plugin_name, CHIRAL_CONNECTOR_PLUGIN_URL . 'public/assets/js/chiral-connector-public.js', array( 'jquery' ), $this->version, true );
+        if ( $enable_display ) {
+            // Check if we should enqueue - either on single posts or if shortcode is present
+            $should_enqueue = false;
+            
+            if ( is_single() ) {
+                $should_enqueue = true;
+            } elseif ( is_page() || is_home() || is_front_page() ) {
+                // Check for shortcode in content
+                global $post;
+                if ( $post && has_shortcode( $post->post_content, 'chiral_related_posts' ) ) {
+                    $should_enqueue = true;
+                }
+            }
+            
+            if ( $should_enqueue ) {
+                wp_enqueue_script( $this->plugin_name, CHIRAL_CONNECTOR_PLUGIN_URL . 'public/assets/js/chiral-connector-public.js', array( 'jquery' ), $this->version, true );
 
-            // Localize script with data needed for AJAX calls to WordPress AJAX handler
-            wp_localize_script( $this->plugin_name, 'chiralConnectorPublicAjax', array(
-                'ajax_url' => admin_url( 'admin-ajax.php' ),
-                'nonce'    => wp_create_nonce( 'chiral_connector_related_posts_nonce' ),
-                // Pass existing texts so JS doesn't break
-                // These texts are defaults in the JS file but localizing them here is more robust
-                'texts'    => array(
-                    'loading' => esc_html__( 'Loading related Chiral data...', 'chiral-connector' ),
-                    'relatedTitle' => esc_html__( 'Related Content', 'chiral-connector' ),
-                    'noData' => esc_html__( 'No related Chiral data found at the moment.', 'chiral-connector' ),
-                    'fetchError' => esc_html__( 'Error fetching related data', 'chiral-connector' ),
-                    'configError' => esc_html__( 'Chiral Connector: Configuration error for related posts.', 'chiral-connector' ),
-                    /* translators: %s: Domain name of the source website */
-                    'source' => esc_html__( 'Source: %s', 'chiral-connector' ),
-                    /* translators: %s: Name of the Chiral Network */
-                    'fromChiralNetwork' => esc_html__( 'From Chiral Network: %s', 'chiral-connector' )
-                )
-            ));
+                // Localize script with data needed for AJAX calls to WordPress AJAX handler
+                wp_localize_script( $this->plugin_name, 'chiralConnectorPublicAjax', array(
+                    'ajax_url' => admin_url( 'admin-ajax.php' ),
+                    'nonce'    => wp_create_nonce( 'chiral_connector_related_posts_nonce' ),
+                    // Pass existing texts so JS doesn't break
+                    // These texts are defaults in the JS file but localizing them here is more robust
+                    'texts'    => array(
+                        'loading' => esc_html__( 'Loading related Chiral data...', 'chiral-connector' ),
+                        'relatedTitle' => esc_html__( 'Related Content', 'chiral-connector' ),
+                        'noData' => esc_html__( 'No related Chiral data found at the moment.', 'chiral-connector' ),
+                        'fetchError' => esc_html__( 'Error fetching related data', 'chiral-connector' ),
+                        'configError' => esc_html__( 'Chiral Connector: Configuration error for related posts.', 'chiral-connector' ),
+                        /* translators: %s: Domain name of the source website */
+                        'source' => esc_html__( 'Source: %s', 'chiral-connector' ),
+                        /* translators: %s: Name of the Chiral Network */
+                        'fromChiralNetwork' => esc_html__( 'From Chiral Network: %s', 'chiral-connector' )
+                    )
+                ));
+            }
         }
     }
 }
