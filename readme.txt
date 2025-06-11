@@ -1,6 +1,5 @@
 === Chiral Connector ===
-Contributors: pls1q43
-Donate link: https://1q43.blog/donate/
+Contributors: Pls(评论尸)
 Tags: related posts, content synchronization, network, jetpack, cross-site, content discovery
 Requires at least: 5.2
 Tested up to: 6.6
