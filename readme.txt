@@ -4,7 +4,7 @@ Donate link: https://1q43.blog/donate/
 Tags: related posts, content synchronization, network, jetpack, cross-site, content discovery
 Requires at least: 5.2
 Tested up to: 6.6
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 Requires PHP: 7.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -115,6 +115,9 @@ Click the "Quit Chiral Network" button on the settings page. This will delete al
 
 == Changelog ==
 
+= 1.1.1 =
+* Fixed: Fixed a communication issue with Chiral Hub Core
+
 = 1.1.0 =
 * New: Hub Mode - Automatically detect if the current site is a Chiral Hub Core site
 * New: Automatically disable data synchronization in Hub mode to avoid cyclic synchronization
@@ -135,11 +138,6 @@ Click the "Quit Chiral Network" button on the settings page. This will delete al
 * Failure retry and error handling
 * Batch sync for existing content
 * Complete admin interface
-
-== Upgrade Notice ==
-
-= 1.0.0 =
-Welcome to Chiral Connector! This is the first stable release providing complete cross-site content synchronization and discovery functionality.
 
 == Additional Information ==
 

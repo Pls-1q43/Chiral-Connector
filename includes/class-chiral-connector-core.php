@@ -345,12 +345,32 @@ class Chiral_Connector_Core {
         $hub_url = isset( $options['hub_url'] ) ? $options['hub_url'] : '';
         $hub_username = isset( $options['hub_username'] ) ? $options['hub_username'] : '';
         $hub_app_password = isset( $options['hub_app_password'] ) ? $options['hub_app_password'] : '';
+        
+        // Get display settings
+        $display_enable = isset( $options['display_enable'] ) ? $options['display_enable'] : true;
+        
+        // Get last disabled time if available
+        $last_disabled_time = null;
+        if ( ! $display_enable ) {
+            $last_disabled_time = get_option( 'chiral_connector_display_last_disabled', null );
+            if ( ! $last_disabled_time ) {
+                // Set it to current time if not set
+                $last_disabled_time = current_time( 'timestamp' );
+                update_option( 'chiral_connector_display_last_disabled', $last_disabled_time );
+            }
+        } else {
+            // If display is enabled, clear the disabled time
+            delete_option( 'chiral_connector_display_last_disabled' );
+        }
 
         $status = array(
             'node_id' => $node_id,
             'hub_configured' => !empty($hub_url) && !empty($hub_username) && !empty($hub_app_password),
             'hub_url' => $hub_url,
-            'is_hub_mode' => $this->is_hub_mode
+            'is_hub_mode' => $this->is_hub_mode,
+            'plugin_version' => $this->version,
+            'related_articles_enabled' => (bool) $display_enable,
+            'last_disabled_time' => $last_disabled_time,
         );
 
         return new WP_REST_Response( $status, 200 );
