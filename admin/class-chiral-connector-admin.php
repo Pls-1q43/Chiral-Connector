@@ -819,12 +819,24 @@ class Chiral_Connector_Admin {
         if ( '' === $send_to_hub ) {
             $send_to_hub = 'yes';
         }
+
+        // Get the current CPT_ID value
+        $hub_cpt_id = get_post_meta( $post->ID, '_chiral_hub_cpt_id', true );
         ?>
         <p>
             <label for="chiral_send_to_hub_checkbox">
                 <input type="checkbox" id="chiral_send_to_hub_checkbox" name="chiral_send_to_hub_checkbox" value="yes" <?php checked( $send_to_hub, 'yes' ); ?> />
                 <?php esc_html_e( 'Send to Chiral Hub?', 'chiral-connector' ); ?>
             </label>
+        </p>
+        <p>
+            <label for="chiral_hub_cpt_id">
+                <?php esc_html_e( 'Hub CPT ID:', 'chiral-connector' ); ?>
+            </label>
+            <input type="number" id="chiral_hub_cpt_id" name="chiral_hub_cpt_id" value="<?php echo esc_attr( $hub_cpt_id ); ?>" min="0" step="1" style="width: 100%; margin-top: 5px;" />
+            <small style="color: #666; display: block; margin-top: 5px;">
+                <?php esc_html_e( 'Leave empty for auto-assignment on first sync. You can manually set this after the first sync.', 'chiral-connector' ); ?>
+            </small>
         </p>
         <?php
     }
@@ -894,6 +906,25 @@ class Chiral_Connector_Admin {
              $new_send_to_hub_value = ( $quick_edit_value === 'yes' ) ? 'yes' : 'no';
         }
 
+        // Handle CPT_ID input
+        $new_hub_cpt_id = '';
+        if ( isset( $_POST['chiral_hub_cpt_id'] ) ) { // From metabox
+            $new_hub_cpt_id = sanitize_text_field( wp_unslash( $_POST['chiral_hub_cpt_id'] ) );
+        } elseif ( isset( $_POST['chiral_hub_cpt_id_quick_edit'] ) ) { // From quick edit
+            $new_hub_cpt_id = sanitize_text_field( wp_unslash( $_POST['chiral_hub_cpt_id_quick_edit'] ) );
+        }
+
+        // Validate CPT_ID - should be empty or a positive integer
+        if ( ! empty( $new_hub_cpt_id ) ) {
+            if ( ! is_numeric( $new_hub_cpt_id ) || intval( $new_hub_cpt_id ) <= 0 ) {
+                // Invalid CPT_ID, log warning and keep existing value
+                Chiral_Connector_Utils::log_message( 'Invalid CPT_ID provided for post ID ' . $post_id . ': ' . $new_hub_cpt_id . '. Keeping existing value.', 'warning' );
+                $new_hub_cpt_id = get_post_meta( $post_id, '_chiral_hub_cpt_id', true );
+            } else {
+                $new_hub_cpt_id = intval( $new_hub_cpt_id );
+            }
+        }
+
 
         $current_send_to_hub_value = get_post_meta( $post_id, '_chiral_send_to_hub', true );
         // Ensure default value for current state if it was never set (important for the first save)
@@ -914,6 +945,18 @@ class Chiral_Connector_Admin {
 
         // Update the meta field in the database.
         update_post_meta( $post_id, '_chiral_send_to_hub', $new_send_to_hub_value );
+
+        // Update CPT_ID if provided
+        if ( ! empty( $new_hub_cpt_id ) ) {
+            update_post_meta( $post_id, '_chiral_hub_cpt_id', $new_hub_cpt_id );
+            update_post_meta( $post_id, '_chiral_manually_set_cpt_id', 'yes' );
+            Chiral_Connector_Utils::log_message( 'Hub CPT_ID manually set to ' . $new_hub_cpt_id . ' for post ID ' . $post_id, 'info' );
+        } elseif ( isset( $_POST['chiral_hub_cpt_id'] ) || isset( $_POST['chiral_hub_cpt_id_quick_edit'] ) ) {
+            // User explicitly cleared the CPT_ID field
+            delete_post_meta( $post_id, '_chiral_hub_cpt_id' );
+            delete_post_meta( $post_id, '_chiral_manually_set_cpt_id' );
+            Chiral_Connector_Utils::log_message( 'Hub CPT_ID cleared for post ID ' . $post_id, 'info' );
+        }
 
         // --- Derivative Logic: Delete from Hub if unchecked and previously synced ---
         if ( $current_send_to_hub_value !== 'no' && $new_send_to_hub_value === 'no' && !empty($hub_cpt_id) ) {
@@ -991,7 +1034,22 @@ class Chiral_Connector_Admin {
             $status_value = ( $send_to_hub === 'no' ) ? 'no' : 'yes'; 
             $display_text = ( $status_value === 'no' ) ? esc_html__( 'No', 'chiral-connector' ) : esc_html__( 'Yes', 'chiral-connector' );
             
-            echo '<span data-chiral-send-status="' . esc_attr( $status_value ) . '">' . $display_text . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            // Get CPT_ID for quick edit data
+            $hub_cpt_id = get_post_meta( $post_id, '_chiral_hub_cpt_id', true );
+            $manually_set = get_post_meta( $post_id, '_chiral_manually_set_cpt_id', true );
+            
+            echo '<span data-chiral-send-status="' . esc_attr( $status_value ) . '" data-chiral-cpt-id="' . esc_attr( $hub_cpt_id ) . '">' . $display_text . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            
+            // Show CPT_ID information if available
+            if ( ! empty( $hub_cpt_id ) ) {
+                $cpt_id_display = '<br><small style="color: #666;">';
+                $cpt_id_display .= esc_html__( 'CPT ID: ', 'chiral-connector' ) . esc_html( $hub_cpt_id );
+                if ( ! empty( $manually_set ) ) {
+                    $cpt_id_display .= ' <span style="color: #0073aa;" title="' . esc_attr__( 'Manually set by user', 'chiral-connector' ) . '">(' . esc_html__( 'Manual', 'chiral-connector' ) . ')</span>';
+                }
+                $cpt_id_display .= '</small>';
+                echo $cpt_id_display; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            }
         }
     }
 
@@ -1059,6 +1117,12 @@ class Chiral_Connector_Admin {
                     <label class="alignleft">
                         <input type="checkbox" name="chiral_send_to_hub_quick_edit" value="yes" />
                         <span class="checkbox-title"><?php esc_html_e( 'Send to Chiral Hub?', 'chiral-connector' ); ?></span>
+                    </label>
+                </div>
+                <div class="inline-edit-group wp-clearfix chiral-quick-edit-group">
+                    <label class="alignleft">
+                        <span class="title"><?php esc_html_e( 'Hub CPT ID:', 'chiral-connector' ); ?></span>
+                        <input type="number" name="chiral_hub_cpt_id_quick_edit" value="" min="0" step="1" placeholder="<?php esc_attr_e( 'Auto-assign', 'chiral-connector' ); ?>" style="width: 100px;" />
                     </label>
                 </div>
             </div>
