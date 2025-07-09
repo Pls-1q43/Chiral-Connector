@@ -204,6 +204,9 @@ class Chiral_Connector_Sync {
         // Get existing hub CPT ID if this post was synced before
         $hub_cpt_id = get_post_meta( $post_id, '_chiral_hub_cpt_id', true );
 
+        // Check if this is a manually set CPT_ID
+        $manually_set_cpt_id = get_post_meta( $post_id, '_chiral_manually_set_cpt_id', true );
+        
         $response = $this->api->send_data_to_hub( $post_data, $hub_url, $username, $app_password, $hub_cpt_id );
 
         if ( is_wp_error( $response ) ) {
@@ -224,8 +227,13 @@ class Chiral_Connector_Sync {
                     $this->schedule_retry_sync( $post_id, 'send' );
                 } else {
                     if ( isset( $retry_response['id'] ) ) {
-                        update_post_meta( $post_id, '_chiral_hub_cpt_id', $retry_response['id'] );
-                        Chiral_Connector_Utils::log_message( 'Successfully re-synced post ID ' . $post_id . ' as new to hub. Hub CPT ID: ' . $retry_response['id'] );
+                        // Only update the CPT_ID if it wasn't manually set by the user
+                        if ( empty( $manually_set_cpt_id ) ) {
+                            update_post_meta( $post_id, '_chiral_hub_cpt_id', $retry_response['id'] );
+                            Chiral_Connector_Utils::log_message( 'Successfully re-synced post ID ' . $post_id . ' as new to hub. Hub CPT ID: ' . $retry_response['id'] );
+                        } else {
+                            Chiral_Connector_Utils::log_message( 'Successfully re-synced post ID ' . $post_id . ' as new to hub. Keeping manually set CPT_ID: ' . $hub_cpt_id );
+                        }
                     } else {
                         Chiral_Connector_Utils::log_message( 'Re-synced post ID ' . $post_id . ' as new but hub response did not contain an ID. Response: ' . print_r($retry_response, true) );
                     }
@@ -238,8 +246,13 @@ class Chiral_Connector_Sync {
         } else {
             // Assuming response contains the hub_cpt_id
             if ( isset( $response['id'] ) ) {
-                update_post_meta( $post_id, '_chiral_hub_cpt_id', $response['id'] );
-                Chiral_Connector_Utils::log_message( 'Successfully synced post ID ' . $post_id . ' to hub. Hub CPT ID: ' . $response['id'] );
+                // Only update the CPT_ID if it wasn't manually set by the user
+                if ( empty( $manually_set_cpt_id ) ) {
+                    update_post_meta( $post_id, '_chiral_hub_cpt_id', $response['id'] );
+                    Chiral_Connector_Utils::log_message( 'Successfully synced post ID ' . $post_id . ' to hub. Hub CPT ID: ' . $response['id'] );
+                } else {
+                    Chiral_Connector_Utils::log_message( 'Successfully synced post ID ' . $post_id . ' to hub. Keeping manually set CPT_ID: ' . $hub_cpt_id );
+                }
             } else {
                  Chiral_Connector_Utils::log_message( 'Synced post ID ' . $post_id . ' but hub response did not contain an ID. Response: ' . print_r($response, true) );
             }
@@ -508,6 +521,7 @@ class Chiral_Connector_Sync {
                         )
                     );
                     $hub_cpt_id = get_post_meta( $post_id, '_chiral_hub_cpt_id', true );
+                    $manually_set_cpt_id = get_post_meta( $post_id, '_chiral_manually_set_cpt_id', true );
                     $response = $this->api->send_data_to_hub( $post_data, $hub_url, $username, $app_password, $hub_cpt_id );
 
                     if ( is_wp_error( $response ) ) {
@@ -526,8 +540,13 @@ class Chiral_Connector_Sync {
                                 $errors_this_page++;
                             } else {
                                 if ( isset( $retry_response['id'] ) ) {
-                                    update_post_meta( $post_id, '_chiral_hub_cpt_id', $retry_response['id'] );
-                                    Chiral_Connector_Utils::log_message( 'Batch sync: Successfully re-synced post ID ' . $post_id . ' as new to hub. Hub CPT ID: ' . $retry_response['id'] );
+                                    // Only update the CPT_ID if it wasn't manually set by the user
+                                    if ( empty( $manually_set_cpt_id ) ) {
+                                        update_post_meta( $post_id, '_chiral_hub_cpt_id', $retry_response['id'] );
+                                        Chiral_Connector_Utils::log_message( 'Batch sync: Successfully re-synced post ID ' . $post_id . ' as new to hub. Hub CPT ID: ' . $retry_response['id'] );
+                                    } else {
+                                        Chiral_Connector_Utils::log_message( 'Batch sync: Successfully re-synced post ID ' . $post_id . ' as new to hub. Keeping manually set CPT_ID: ' . $hub_cpt_id );
+                                    }
                                     $synced_this_page++;
                                 } else {
                                     Chiral_Connector_Utils::log_message( 'Batch sync: Re-synced post ID ' . $post_id . ' as new but hub response did not contain an ID. Response: ' . print_r($retry_response, true) );
@@ -540,8 +559,13 @@ class Chiral_Connector_Sync {
                         }
                     } else {
                         if ( isset( $response['id'] ) ) {
-                            update_post_meta( $post_id, '_chiral_hub_cpt_id', $response['id'] );
-                            Chiral_Connector_Utils::log_message( 'Batch sync: Successfully synced post ID ' . $post_id . '. Hub ID: ' . $response['id'] );
+                            // Only update the CPT_ID if it wasn't manually set by the user
+                            if ( empty( $manually_set_cpt_id ) ) {
+                                update_post_meta( $post_id, '_chiral_hub_cpt_id', $response['id'] );
+                                Chiral_Connector_Utils::log_message( 'Batch sync: Successfully synced post ID ' . $post_id . '. Hub ID: ' . $response['id'] );
+                            } else {
+                                Chiral_Connector_Utils::log_message( 'Batch sync: Successfully synced post ID ' . $post_id . '. Keeping manually set CPT_ID: ' . $hub_cpt_id );
+                            }
                             $synced_this_page++;
                         } else {
                             Chiral_Connector_Utils::log_message( 'Batch sync: Synced post ID ' . $post_id . ' but hub response did not contain an ID. Response: ' . print_r($response, true));

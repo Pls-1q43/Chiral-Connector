@@ -239,16 +239,24 @@
         // The quick edit row ID is 'edit-' + post_id
         var $edit_row = $('#edit-' + post_id);
         var $chiral_checkbox = $edit_row.find('input[name="chiral_send_to_hub_quick_edit"]');
+        var $chiral_cpt_id_input = $edit_row.find('input[name="chiral_hub_cpt_id_quick_edit"]');
 
         if ($chiral_checkbox.length) {
             var $rowData = $('#post-' + post_id);
             var is_checked = true; // Default to true (checked)
+            var cpt_id_value = ''; // Default to empty
 
             // Try to get value from data attribute first (more robust)
             var $status_span = $rowData.find('.column-chiral_send_to_hub span[data-chiral-send-status]');
             if ($status_span.length) {
                 var chiral_send_val = $status_span.data('chiral-send-status');
                 is_checked = (chiral_send_val === 'yes');
+                
+                // Get CPT_ID value
+                var chiral_cpt_id_val = $status_span.data('chiral-cpt-id');
+                if (chiral_cpt_id_val && chiral_cpt_id_val !== '' && chiral_cpt_id_val !== '0') {
+                    cpt_id_value = chiral_cpt_id_val;
+                }
             } else {
                 // Fallback: If data attribute is not found (e.g. due to an issue or older version),
                 // try to infer from text content of the column, using localized values if possible.
@@ -270,6 +278,11 @@
                 }
             }
             $chiral_checkbox.prop('checked', is_checked);
+            
+            // Set CPT_ID value
+            if ($chiral_cpt_id_input.length) {
+                $chiral_cpt_id_input.val(cpt_id_value);
+            }
         }
     });
 
