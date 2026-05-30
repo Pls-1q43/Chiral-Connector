@@ -12,7 +12,7 @@
  * Plugin Name:       Chiral Connector
  * Plugin URI:        https://ckc.akashio.com
  * Description:       Connects your WordPress site to a Chiral Hub, enabling content synchronization and discovery within the Chiral Network.
- * Version:           1.2.1
+ * Version:           1.2.2
  * Requires at least: 5.2
  * Requires PHP:      7.2
  * Author:            评论尸(Pls)
@@ -31,7 +31,7 @@ if ( ! defined( 'WPINC' ) ) {
 /**
  * Define constants
  */
-define( 'CHIRAL_CONNECTOR_VERSION', '1.2.1' );
+define( 'CHIRAL_CONNECTOR_VERSION', '1.2.2' );
 define( 'CHIRAL_CONNECTOR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CHIRAL_CONNECTOR_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'CHIRAL_CONNECTOR_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

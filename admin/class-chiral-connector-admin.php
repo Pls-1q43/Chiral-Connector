@@ -354,6 +354,11 @@ class Chiral_Connector_Admin {
         if ( ! isset( $input['hub_user_id'] ) && isset( $existing_settings['hub_user_id'] ) ) {
             $sanitized_input['hub_user_id'] = absint( $existing_settings['hub_user_id'] );
         }
+
+        // Preserve legacy sync flags that are not currently rendered in the settings UI.
+        $sanitized_input['sync_on_publish'] = isset( $existing_settings['sync_on_publish'] ) ? (bool) $existing_settings['sync_on_publish'] : true;
+        $sanitized_input['sync_on_trash']   = isset( $existing_settings['sync_on_trash'] ) ? (bool) $existing_settings['sync_on_trash'] : true;
+        $sanitized_input['batch_sync_posts_per_page'] = isset( $existing_settings['batch_sync_posts_per_page'] ) ? absint( $existing_settings['batch_sync_posts_per_page'] ) : 20;
         
         return $sanitized_input;
     }

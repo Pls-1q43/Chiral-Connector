@@ -245,17 +245,19 @@ class Chiral_Connector_Core {
 
         $settings = get_option('chiral_connector_settings');
 
-        // Check if settings are loaded and valid
-        if (is_array($settings)) {
-            if ( ! empty( $settings['sync_on_publish'] ) ) {
-                // Handles new posts and updates to existing posts that are published
-                $this->loader->add_action( 'transition_post_status', $plugin_sync, 'sync_post_on_publish_or_update', 10, 3 );
-            }
-            if ( ! empty( $settings['sync_on_trash'] ) ) {
-                $this->loader->add_action( 'wp_trash_post', $plugin_sync, 'delete_post_from_hub_on_trash', 10, 1 );
-                // Also handle permanent deletion for completeness, though trash is the primary hook
-                $this->loader->add_action( 'delete_post', $plugin_sync, 'delete_post_from_hub_on_delete', 10, 1 ); 
-            }
+        // Sync options predate the current settings UI. Missing values should keep the historical default: enabled.
+        $sync_on_publish = ! is_array( $settings ) || ! array_key_exists( 'sync_on_publish', $settings ) ? true : ! empty( $settings['sync_on_publish'] );
+        $sync_on_trash   = ! is_array( $settings ) || ! array_key_exists( 'sync_on_trash', $settings ) ? true : ! empty( $settings['sync_on_trash'] );
+
+        if ( $sync_on_publish ) {
+            // Handles new posts and updates to existing posts that are published
+            $this->loader->add_action( 'transition_post_status', $plugin_sync, 'sync_post_on_publish_or_update', 10, 3 );
+        }
+
+        if ( $sync_on_trash ) {
+            $this->loader->add_action( 'wp_trash_post', $plugin_sync, 'delete_post_from_hub_on_trash', 10, 1 );
+            // Also handle permanent deletion for completeness, though trash is the primary hook
+            $this->loader->add_action( 'delete_post', $plugin_sync, 'delete_post_from_hub_on_delete', 10, 1 ); 
         }
 
         // Cron hook for retrying failed syncs - this should always be active
