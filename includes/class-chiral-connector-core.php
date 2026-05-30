@@ -261,6 +261,7 @@ class Chiral_Connector_Core {
         // Cron hook for retrying failed syncs - this should always be active
         // $this->loader->add_action( 'chiral_connector_retry_failed_syncs', $plugin_sync, 'retry_failed_syncs' );
         $this->loader->add_action( 'chiral_connector_retry_sync_event', $plugin_sync, 'handle_retry_sync_event', 10, 4 );
+        $this->loader->add_action( 'chiral_connector_batch_sync_posts', $plugin_sync, 'batch_sync_posts' );
     }
 
     /**

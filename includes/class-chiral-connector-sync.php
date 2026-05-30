@@ -46,14 +46,7 @@ class Chiral_Connector_Sync {
     public function __construct( $plugin_name, $version ) {
         $this->plugin_name = $plugin_name;
         $this->version     = $version;
-        // It's good practice to inject dependencies or get them from a service locator/container.
-        // For simplicity, we might instantiate it here or expect it to be passed if Chiral_Connector_Core manages instances.
-        // $this->api = new Chiral_Connector_Api( $this->plugin_name, $this->version ); 
-        // Let's assume Chiral_Connector_Core will pass the loader, and we add hooks there.
-        // Or, we add hooks directly here using add_action/add_filter.
-
         $this->load_dependencies();
-        $this->define_hooks();
     }
 
     /**
@@ -69,19 +62,6 @@ class Chiral_Connector_Sync {
         // Or better, get it from the main plugin class if it's already instantiated there.
         // For now, direct instantiation for simplicity, though dependency injection is preferred.
         $this->api = new Chiral_Connector_Api($this->plugin_name, $this->version);
-    }
-
-    /**
-     * Define WordPress hooks for synchronization.
-     */
-    private function define_hooks() {
-        add_action( 'publish_post', array( $this, 'sync_on_publish_post' ), 10, 2 );
-        add_action( 'save_post', array( $this, 'sync_on_save_post' ), 10, 3 ); // For updates to already published posts
-        add_action( 'wp_trash_post', array( $this, 'sync_on_trash_post' ), 10, 1 );
-        add_action( 'delete_post', array( $this, 'sync_on_delete_post' ), 10, 1 );
-
-        // Hook for batch sync, to be called from admin class
-        add_action( 'chiral_connector_batch_sync_posts', array( $this, 'batch_sync_posts' ) );
     }
 
     /**
@@ -105,6 +85,30 @@ class Chiral_Connector_Sync {
             return;
         }
         $this->sync_post_to_hub( $post_id );
+    }
+
+    /**
+     * Handles synchronization for publish transitions and published-post updates.
+     *
+     * @since 1.2.1
+     * @param string  $new_status The new post status.
+     * @param string  $old_status The old post status.
+     * @param WP_Post $post       The post object.
+     */
+    public function sync_post_on_publish_or_update( $new_status, $old_status, $post ) {
+        if ( ! $post || $post->post_type !== 'post' ) {
+            return;
+        }
+
+        if ( $new_status !== 'publish' ) {
+            return;
+        }
+
+        if ( wp_is_post_revision( $post->ID ) || wp_is_post_autosave( $post->ID ) ) {
+            return;
+        }
+
+        $this->sync_post_to_hub( $post->ID );
     }
 
     /**
@@ -274,6 +278,16 @@ class Chiral_Connector_Sync {
     }
 
     /**
+     * Deletes Hub data when a local post is trashed.
+     *
+     * @since 1.2.1
+     * @param int $post_id The ID of the post being trashed.
+     */
+    public function delete_post_from_hub_on_trash( $post_id ) {
+        $this->sync_on_trash_post( $post_id );
+    }
+
+    /**
      * Handles post deletion when a post is permanently deleted.
      * This is called after wp_trash_post if trashing, or directly if force deleting.
      *
@@ -288,6 +302,16 @@ class Chiral_Connector_Sync {
         // For simplicity, assume if it has _chiral_hub_cpt_id, it was a synced post.
 
         $this->delete_post_from_hub( $post_id );
+    }
+
+    /**
+     * Deletes Hub data when a local post is permanently deleted.
+     *
+     * @since 1.2.1
+     * @param int $post_id The ID of the post being deleted.
+     */
+    public function delete_post_from_hub_on_delete( $post_id ) {
+        $this->sync_on_delete_post( $post_id );
     }
 
     /**

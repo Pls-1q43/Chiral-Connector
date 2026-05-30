@@ -4,7 +4,7 @@ Donate link: https://1q43.blog/donate/
 Tags: related posts, content synchronization, network, jetpack, cross-site, content discovery
 Requires at least: 5.2
 Tested up to: 6.6
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 Requires PHP: 7.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
@@ -114,6 +114,10 @@ Click the "Quit Chiral Network" button on the settings page. This will delete al
 4. Batch sync interface - One-click sync of all existing posts
 
 == Changelog ==
+
+= 1.2.1 =
+* Fixed: Prevent duplicate Hub CPT creation during publish/update sync by centralizing sync hook registration.
+* Fixed: Added missing sync callback wrappers used by the core loader.
 
 = 1.1.1 =
 * Fixed: Fixed a communication issue with Chiral Hub Core
